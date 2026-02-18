@@ -1,17 +1,19 @@
 
+import Stripe from 'stripe';
 import Payment from '../models/Payment.js';
 import Product from '../models/Product.js';
 import Vendor from '../models/Vendor.js';
 import Wallet from '../models/Wallet.js';
 import mongoose from 'mongoose';
-import { v4 as uuidv4 } from 'uuid';
 import { PLATFORM_FEE_PERCENT, VENDOR_STATUS } from '../utils/constants.js';
 import { ApiError } from '../utils/errors.js';
 
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
 
 export const createPayment = async (productId, customerId) => {
   const product = await Product.findById(productId).populate('vendorId');
-  console.log(product,"llllll")
   if (!product) {
     throw new ApiError('Product not found', 404);
   }
@@ -32,7 +34,25 @@ export const createPayment = async (productId, customerId) => {
   const platformFee = Math.round(amount * PLATFORM_FEE_PERCENT) / 100;
   const vendorAmount = amount - platformFee;
 
-  const paymentIntentId = `pi_${uuidv4().replace(/-/g, '')}`;
+  let paymentIntentId;
+  let clientSecret = null;
+
+  if (stripe) {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100),
+      currency: 'usd',
+      automatic_payment_methods: { enabled: true },
+      metadata: {
+        productId: productId.toString(),
+        customerId: customerId.toString(),
+        vendorId: vendor._id.toString(),
+      },
+    });
+    paymentIntentId = paymentIntent.id;
+    clientSecret = paymentIntent.client_secret;
+  } else {
+    throw new ApiError('Stripe is not configured. Set STRIPE_SECRET_KEY in .env', 500);
+  }
 
   const payment = await Payment.create({
     paymentIntentId,
@@ -48,13 +68,42 @@ export const createPayment = async (productId, customerId) => {
   return {
     paymentId: payment._id,
     paymentIntentId,
+    clientSecret,
     amount,
     status: 'pending',
   };
 };
 
+export const getClientSecret = async (paymentId, customerId) => {
+  const payment = await Payment.findOne({ _id: paymentId, customerId });
+  if (!payment) {
+    throw new ApiError('Payment not found', 404);
+  }
+  if (payment.status !== 'pending') {
+    throw new ApiError('Payment is not pending', 400);
+  }
+  if (!stripe) {
+    throw new ApiError('Stripe is not configured', 500);
+  }
+  const paymentIntent = await stripe.paymentIntents.retrieve(payment.paymentIntentId);
+  return { clientSecret: paymentIntent.client_secret };
+};
 
 
+
+
+/** Sync payment status from Stripe when webhook hasn't fired (e.g. local dev without Stripe CLI) */
+export const syncPaymentStatusIfPending = async (paymentIntentId) => {
+  if (!stripe) return;
+  try {
+    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+    if (paymentIntent.status === 'succeeded') {
+      await processWebhook(paymentIntentId);
+    }
+  } catch (err) {
+    console.error('[syncPaymentStatus]', err.message);
+  }
+};
 
 export const processWebhook = async (paymentIntentId) => {
   const session = await mongoose.startSession();

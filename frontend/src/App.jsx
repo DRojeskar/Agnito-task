@@ -5,6 +5,7 @@ import VendorDashboard from './pages/VendorDashboard';
 import ProductPage from './pages/ProductPage';
 import AdminPage from './pages/AdminPage';
 import PaymentStatus from './pages/PaymentStatus';
+import CheckoutPage from './pages/CheckoutPage';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import VendorOnboarding from './pages/VendorOnboarding';
@@ -85,6 +86,7 @@ function App() {
 
           {/* <Route path="/vendor" element={<ProtectedRoute><VendorDashboard /></ProtectedRoute>} /> */}
           {/* <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} /> */}
+          <Route path="/checkout/:paymentId" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
           <Route path="/payment/:paymentId" element={<ProtectedRoute><PaymentStatus /></ProtectedRoute>} />
         </Routes>
       </main>

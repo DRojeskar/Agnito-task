@@ -12,20 +12,17 @@ const cleanupOldEvents = () => {
 };
 
 export const handleWebhook = async (req, res) => {
-  console.log("Received webhook:", req.body);
-  const { eventType, paymentIntentId } = req.body;
-  console.log(req.body,"test")
-
-  if (!eventType || !paymentIntentId) {
-    return res.status(400).json({success: false,error: 'eventType and paymentIntentId are required',});
+  const event = req.stripeEvent;
+  if (!event) {
+    return res.status(400).json({ success: false, error: 'Invalid webhook event' });
   }
 
-  if (eventType!== 'payment.success') {
+  if (event.type !== 'payment_intent.succeeded') {
     return res.status(200).json({ success: true, message: 'Event type ignored' });
   }
 
-  const idempotencyKey = `payment.success:${paymentIntentId}`;
-  console.log(idempotencyKey,"idempotencyKey")
+  const paymentIntentId = event.data.object.id;
+  const idempotencyKey = `payment_intent.succeeded:${paymentIntentId}`;
 
   if (processedEvents.has(idempotencyKey)) {
     cleanupOldEvents();
@@ -33,11 +30,12 @@ export const handleWebhook = async (req, res) => {
   }
 
   const result = await paymentService.processWebhook(paymentIntentId);
-  console.log(result,"result")
   processedEvents.set(idempotencyKey, Date.now());
-  console.log(processedEvents,"processedEvents")
 
-  return res.status(200).json({success: true,message: result.alreadyProcessed ? 'Already processed' : 'Webhook processed',paymentId: result.payment?._id,
+  return res.status(200).json({
+    success: true,
+    message: result.alreadyProcessed ? 'Already processed' : 'Webhook processed',
+    paymentId: result.payment?._id,
     status: result.payment?.status,
   });
 };

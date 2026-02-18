@@ -17,6 +17,7 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  getConfig: () => request('/config'),
   register: (email, password, name) =>
     request('/auth/register', {
       method: 'POST',
@@ -92,4 +93,5 @@ completeOnboarding: () =>
       body: JSON.stringify({ productId }),
     }),
   getPayment: (id) => request(`/payment/${id}`),
+  getPaymentClientSecret: (paymentId) => request(`/payment/${paymentId}/client-secret`),
 };

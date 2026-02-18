@@ -49,7 +49,12 @@ export default function ProductPage() {
     setError(null);
     try {
       const res = await api.createPayment(p.id);
-      navigate(`/payment/${res.paymentId}`);
+      navigate(`/checkout/${res.paymentId}`, {
+        state: {
+          clientSecret: res.clientSecret,
+          amount: res.amount ?? p.price,
+        },
+      });
     } catch (e) {
       setError(e.message);
     } finally {

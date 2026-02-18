@@ -14,8 +14,8 @@ import { ROLES } from '../utils/constants.js';
 const router = express.Router();
 
 
-router.post('/create-payment',authenticate,requireRole(ROLES.CUSTOMER),requireFields('productId'),paymentController.createPayment);
-
-router.get('/:id',authenticate,validateObjectId('id'),paymentController.getPayment);
+router.post('/create-payment', authenticate, requireRole(ROLES.CUSTOMER), requireFields('productId'), paymentController.createPayment);
+router.get('/:id/client-secret', authenticate, requireRole(ROLES.CUSTOMER), validateObjectId('id'), paymentController.getClientSecret);
+router.get('/:id', authenticate, validateObjectId('id'), paymentController.getPayment);
 
 export default router;
